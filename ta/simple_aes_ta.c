@@ -25,6 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <string.h>
 #include <inttypes.h>
 
 #include <tee_internal_api.h>
@@ -51,13 +52,13 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t __unused param_types,
 	return TEE_SUCCESS;
 }
 
-void TA_CloseSessionEntryPoint(void *session)
+void TA_CloseSessionEntryPoint(void __unused *session)
 {
 	/* Nothing to do */
 }
 
 TEE_Result TA_InvokeCommandEntryPoint(void *session,
-				      uint32_t cmd,
+				      uint32_t __unused cmd,
 				      uint32_t param_types,
 				      TEE_Param params[4])
 {
@@ -69,7 +70,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session,
 
 	uint8_t *keybuffer;
 	uint8_t *iv;
-	uint32_t iv_len;
+	uint32_t ivlen;
 	uint8_t *srcdata, *destdata;
 	uint32_t srclen, destlen;
 	uint8_t *plaindata;
@@ -86,20 +87,23 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session,
 
 	keybuffer = params[0].memref.buffer;
 	iv = params[1].memref.buffer;
-	iv_len = params[1].memref.size;
+	ivlen = params[1].memref.size;
 	srcdata = params[2].memref.buffer;
 	srclen = params[2].memref.size;
 	destdata = params[3].memref.buffer;
 	destlen = params[3].memref.size;
 
+	plainlen = srclen;
+
 	/* need a 256bits key size */
 	if (params[0].memref.size != 32)
 		return TEE_ERROR_BAD_PARAMETERS;
 
-	plaindata = TEE_Malloc(plainlen);
+	plaindata = TEE_Malloc(plainlen,TEE_MALLOC_FILL_ZERO);
 	if (!plaindata)
 		return TEE_ERROR_OUT_OF_MEMORY;
 
+	trace_set_level(3);
 	/* allocate the cipher operations */
 
 	res = TEE_AllocateOperation(&op_encrypt,
@@ -130,7 +134,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session,
 		goto out1;
 	}
 
-	TEE_RestrictObjectUsage(trans_key, TEE_USAGE_EXTRACTABLE | TEE_USAGE_ENCRYPT | TEE_USAGE_DECRYPT,);
+	TEE_RestrictObjectUsage(trans_key, TEE_USAGE_EXTRACTABLE | TEE_USAGE_ENCRYPT | TEE_USAGE_DECRYPT);
 
 	TEE_InitRefAttribute(&attrs,
 			     TEE_ATTR_SECRET_VALUE,
@@ -158,7 +162,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session,
 
 	/* encrypt srcdata in destdata */
 	TEE_CipherInit(op_encrypt, iv, ivlen);
-	res = TEE_CipherDoFinal(op_encrypt, srcdata, srclen, destdata, destlen);
+	res = TEE_CipherDoFinal(op_encrypt, srcdata, srclen, destdata, &destlen);
 	if (res != TEE_SUCCESS) {
 		EMSG("can not do AES %x", res);
 		goto out2;
@@ -166,7 +170,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session,
 
 	/* decrypt destdata in plaindata */
 	TEE_CipherInit(op_decrypt, iv, ivlen);
-	res = TEE_CipherDoFinal(op_decrypt, destdata, destlen, plaindata, plainlen);
+	res = TEE_CipherDoFinal(op_decrypt, destdata, destlen, plaindata, &plainlen);
 	if (res != TEE_SUCCESS) {
 		EMSG("can not do AES %x", res);
 		goto out2;
@@ -181,7 +185,9 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session,
 	if (memcmp(plaindata, srcdata, srclen)) {
 		EMSG("AES operation failed");
 		res = TEE_ERROR_GENERIC;
+		goto out2;
 	}
+	DMSG("AES operation successfull");
 
 out2:
 	TEE_FreeTransientObject(trans_key);

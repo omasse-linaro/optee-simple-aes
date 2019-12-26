@@ -49,13 +49,19 @@ int main(void)
 
 	res = TEEC_InitializeContext(NULL, &ctx);
 	if (res != TEEC_SUCCESS)
+	{
+		printf("TEE initialize failed 0x%08X\n",res);
 		goto err;
+	}
 
 	/* Open a session with the TA */
 	res = TEEC_OpenSession(&ctx, &sess, &uuid,
 			       TEEC_LOGIN_PUBLIC, NULL, NULL, &origin);
 	if (res != TEEC_SUCCESS)
+	{
+		printf("open session failed 0x%08X\n",res);
 		goto err;
+	}
 
 	memset(key, 0xa5, sizeof(key)); /* Load some dummy value */
 	memset(iv, 0, sizeof(iv)); /* set iv to NULL */
@@ -79,7 +85,12 @@ int main(void)
 	res = TEEC_InvokeCommand(&sess, 0,
 				 &op, &origin);
 	if (res != TEEC_SUCCESS)
+	{
+		printf("invoke failed 0x%08X origin %d\n",res,origin);
 		goto err;
+	}
+
+	printf("SUCCESS\n");
 
 err:
 	TEEC_CloseSession(&sess);

@@ -1,4 +1,10 @@
-project (optee-simple-aes C)
+cmake_minimum_required (VERSION 3.4)
+project (optee_simple_aes C)
+
+include(GNUInstallDirs)
+
+# Default cross compile settings
+set (CMAKE_TOOLCHAIN_FILE CMakeToolchain.txt)
 
 set (SRC host/main.c)
 
@@ -10,4 +16,4 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries (${PROJECT_NAME} PRIVATE teec)
 
-install (TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
+install (TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
