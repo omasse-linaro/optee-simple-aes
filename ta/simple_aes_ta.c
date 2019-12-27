@@ -103,7 +103,6 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session,
 	if (!plaindata)
 		return TEE_ERROR_OUT_OF_MEMORY;
 
-	trace_set_level(4);
 	/* allocate the cipher operations */
 
 	res = TEE_AllocateOperation(&op_encrypt,
